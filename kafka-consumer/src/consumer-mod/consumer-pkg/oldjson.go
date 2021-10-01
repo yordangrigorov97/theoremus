@@ -1,4 +1,35 @@
 
+	type SensorFields struct {
+	Data struct {
+		DateTime struct {
+			System time.Time `json:"system"`
+		} `json:"date-time"`
+		GpsInfo struct {
+			Altitude      string  `json:"Altitude"`
+			Date          string  `json:"Date"`
+			Hdop          string  `json:"HDOP"`
+			Latitude      string  `json:"Latitude"`
+			Longitude     string  `json:"Longitude"`
+			SatelliteUsed int     `json:"SatelliteUsed"`
+			Speed         float64 `json:"Speed"`
+			Time          string  `json:"Time"`
+			Validity      string  `json:"Validity"`
+		} `json:"gps-info"`
+		ModemInfo struct {
+			SignalQuality string `json:"signal-quality"`
+		} `json:"modem-info"`
+		StopInfo struct {
+		} `json:"stop-info"`
+	} `json:"data"`
+	DeviceID      string `json:"device-id"`
+	DeviceType    string `json:"device-type"`
+	Hostname      string `json:"hostname"`
+	Priority      int    `json:"priority"`
+	SchemeVersion string `json:"scheme-version"`
+	VehicleID     string `json:"vehicle-id"`
+	ID            string `json:"id"`
+	}
+
 	vehiclesJson := make([]string, 11)
 	vehiclesJson[0] = `{"data":{"date-time":{"system":"2021-09-24T01:40:01+00:00"},"gps-info":{"Altitude":"552.8","Date":"240921","HDOP":"0.7","Latitude":"42.70599365","Longitude":"23.31282425","SatelliteUsed":9,"Speed":52.782001495361328,"Time":"014001.00","Validity":"A"},"modem-info":{"signal-quality":"31"},"stop-info":{}},"device-id":"004101FB","device-type":"OBU","hostname":"obu","priority":1,"scheme-version":"v1_0_9","vehicle-id":"132801","id":"ddd21912-421c-4839-8669-153dfc4d6def"}`
 	vehiclesJson[1] =`{"data":{"date-time":{"system":"2021-09-24T01:40:01+00:00"},"gps-info":{"Altitude":"562.3","Date":"240921","HDOP":"0.7","Latitude":"42.64899063","Longitude":"23.41792297","SatelliteUsed":9,"Speed":0,"Time":"014001.00","Validity":"A"},"modem-info":{"signal-quality":"27"},"stop-info":{}},"device-id":"0040D702","device-type":"OBU","hostname":"obu","priority":1,"scheme-version":"v1_0_9","vehicle-id":"133665","id":"48111729-5685-484e-82cf-e0b217420649"}`
