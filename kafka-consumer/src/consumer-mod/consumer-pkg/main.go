@@ -49,7 +49,7 @@ func main(){
 	for {
 	    message, err := r.ReadMessage(context.Background())
 	    if err != nil {
-		print(err)
+		fmt.Println(err)
 		// probably kafka still booting
 		time.Sleep(2 * time.Second)
 	    }
@@ -123,7 +123,10 @@ func writeMongo(rawmessage []byte){
 	var message_obj SensorFields
 	err := json.Unmarshal(rawmessage, &message_obj)
 	if err != nil {
-	    panic(err)
+	    // if JSON is invalid, skip message
+	    fmt.Println(rawmessage)
+	    fmt.Println(err)
+	    return
 	}
 
 	addTimeKeys(&message_obj)

@@ -1,5 +1,6 @@
 import pandas
 from kafka import KafkaProducer
+import json
 
 # test_data = ["""{"data":{"date-time":{"system":"2021-09-24T01:40:01+00:00"},"gps-info":{"Altitude":"552.8","Date":"240921","HDOP":"0.7","Latitude":"42.70599365","Longitude":"23.31282425","SatelliteUsed":9,"Speed":52.782001495361328,"Time":"014001.00","Validity":"A"},"modem-info":{"signal-quality":"31"},"stop-info":{}},"device-id":"004101FB","device-type":"OBU","hostname":"obu","priority":1,"scheme-version":"v1_0_9","vehicle-id":"132801","id":"ddd21912-421c-4839-8669-153dfc4d6def"}""",
 #     """{"data":{"date-time":{"system":"2021-09-24T01:40:01+00:00"},"gps-info":{"Altitude":"562.3","Date":"240921","HDOP":"0.7","Latitude":"42.64899063","Longitude":"23.41792297","SatelliteUsed":9,"Speed":0,"Time":"014001.00","Validity":"A"},"modem-info":{"signal-quality":"27"},"stop-info":{}},"device-id":"0040D702","device-type":"OBU","hostname":"obu","priority":1,"scheme-version":"v1_0_9","vehicle-id":"133665","id":"48111729-5685-484e-82cf-e0b217420649"}""",
@@ -25,20 +26,45 @@ def print_files(where: str):
             print(len(path) * '---', file)
 
 
+def read_config() -> str:
+    conf_file = open('conf.json',)
+    conf: dict = json.load(conf_file)
+    conf_file.close()
+    return conf["kafka_uri"], conf["data_path"]
+
+
+def hasValidGPS(msg: dict) -> bool:
+    def isValidFloat(value2: str) -> bool:
+        try:
+            float(value2)
+            return True
+        except ValueError:
+            return False
+    long: str = msg["data"]["gps-info"]["Longitude"]
+    lat: str = msg["data"]["gps-info"]["Latitude"]
+    return isValidFloat(long) and isValidFloat(lat)
+
+
 if __name__ == "__main__":
 
     print('hello from kafka-producer')
+    print('reading config..')
+    kafka_uri, data_path = read_config()
 
     print('reading csv..')
-    # raw_data = pandas.read_csv('small_data.csv', sep=';', header=0)
-    raw_data = pandas.read_csv('data/raw_gps_data.csv', sep=';', header=0)
+    raw_data = pandas.read_csv(data_path, sep=';', header=0)
     print('connecting..')
-    producer = KafkaProducer(bootstrap_servers='kafka:9092',
+    producer = KafkaProducer(bootstrap_servers=kafka_uri,
                              api_version=(2, 4, 1), acks='all')
     print(f'{producer.bootstrap_connected()=}')
     print('sending..')
     for index, datarow in raw_data.iterrows():
         # import ipdb; ipdb.set_trace()
+        msg = json.loads(datarow['value'])
+        if not hasValidGPS(msg):
+            print(f"caught invalid GPS in:\n{msg}\nskipping..")
+            continue
+
         meta = producer.send(
             topic='vehicles',
             value=str.encode(datarow['value']),

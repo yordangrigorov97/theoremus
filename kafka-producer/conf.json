@@ -1,0 +1,4 @@
+{
+	"kafka_uri": "kafka:9092",
+	"data_path": "data/raw_gps_data.csv"
+}
