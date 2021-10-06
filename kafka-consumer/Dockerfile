@@ -9,7 +9,9 @@ RUN go get go.mongodb.org/mongo-driver/mongo/options
 
 
 COPY . .
-WORKDIR ./src/consumer-mod
+WORKDIR ./src/consumer-mod/consumer-pkg
+RUN go build .
+
 # RUN go mod tidy
 # RUN go install -v ./...
 

@@ -23,12 +23,22 @@ services:
       # - KAFKA_CREATE_TOPICS=vehicles:1:1
     depends_on:
       - zookeeper
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    container_name: kafka-ui
+    ports:
+      - 9080:8080
+    restart: always
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=kafka
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
   kafka-consumer:
      container_name: kafka-consumer
      build: './kafka-consumer'
-     ports:
-       - 8182:8182
-     command: go run ./consumer-pkg/main.go
+     #      ports:
+     #        - 8182:8182
+     command: go run .
      depends_on:
        - mongo
        - mongo-express
@@ -37,16 +47,17 @@ services:
      container_name: kafka-producer
      build: './kafka-producer'
      command: python3 main.py
-     ports:
-       - 8180:8181
+     #      ports:
+     #        - 8180:8181
      depends_on:
        - kafka
+       - kafka-ui
   webapi:
      container_name: webapi
      build: './webapi'
-     command: python3 manage.py runserver 0:8000 
+     command: python3 manage.py runserver 0:8080 
      ports:
-       - 8000:8000
+       - 8080:8080
      depends_on:
        - mongo
   mongo:
@@ -62,7 +73,7 @@ services:
     image: mongo-express
     restart: always
     ports:
-      - 8081:8081
+      - 27080:8081
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: root

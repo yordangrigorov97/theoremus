@@ -5,13 +5,15 @@ import (
 	"context"
 	"log"
 	"encoding/json"
-	"reflect"
+	//"reflect"
 	"time"
 	// "os"
+	"strconv"
 
 	"github.com/segmentio/kafka-go"
 	// "github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson"
+	//"go.mongodb.org/mongo-driver/bson"
+	//"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	)
@@ -29,44 +31,27 @@ func main(){
 	})
 	r.SetOffset(0)
 
-	// for {
-	//     m, err := r.ReadMessage(context.Background())
-	//     if err != nil {
-	// 	break
-	//     }
-	//     fmt.Printf("message at offset %d: %s = %s\n", m.Offset, string(m.Key), string(m.Value))
-	// }
+	for {
+	    message, err := r.ReadMessage(context.Background())
+	    if err != nil {
+		break
+	    }
+	    fmt.Printf("message at offset %d: %s = %s\n", message.Offset, string(message.Key), string(message.Value))
+	    message_str := string(message.Value)
+	    writeMongo(message_str)
+	}
 	fmt.Println("done reading...")
 
 	if err := r.Close(); err != nil {
 	    log.Fatal("failed to close reader:", err)
 	}
 
-	writeMongo()
+	// JSONstr := `{"data":{"date-time":{"system":"2021-09-24T01:40:01+00:00"},"gps-info":{"Altitude":"552.8","Date":"240921","HDOP":"0.7","Latitude":"42.70599365","Longitude":"23.31282425","SatelliteUsed":9,"Speed":52.782001495361328,"Time":"014001.00","Validity":"A"},"modem-info":{"signal-quality":"31"},"stop-info":{}},"device-id":"004101FB","device-type":"OBU","hostname":"obu","priority":1,"scheme-version":"v1_0_9","vehicle-id":"132801","id":"ddd21912-421c-4839-8669-153dfc4d6def"}`
 	fmt.Println("goodbye from kafka-consumer")
 
 }
-func writeMongo(){
 
-
-	AJSON := `{"data":{"date-time":{"system":"2021-09-24T01:40:01+00:00"},"gps-info":{"Altitude":"552.8","Date":"240921","HDOP":"0.7","Latitude":"42.70599365","Longitude":"23.31282425","SatelliteUsed":9,"Speed":52.782001495361328,"Time":"014001.00","Validity":"A"},"modem-info":{"signal-quality":"31"},"stop-info":{}},"device-id":"004101FB","device-type":"OBU","hostname":"obu","priority":1,"scheme-version":"v1_0_9","vehicle-id":"132801","id":"ddd21912-421c-4839-8669-153dfc4d6def"}`
-	var Abson primitive.D
-	err := bson.UnmarshalExtJSON(
-		[]byte(AJSON), true, &Abson)
-	if err != nil {
-		panic(err)
-	}
-	insp := B.Map()["data"].(primitive.D).Map()["date-time"].(primitive.D).Map()["system"]
-
-	//A := bson.D{{"foo", "bar"}, {"hello", "world"}, {"pi", 3.14159}}
-	B := append(Abson, bson.E{"Extra_Hour", 12})
-
-	var doc SensorFields
-	err := json.Unmarshal([]byte(vehicleJson), &doc)
-
-	// Print MongoDB docs object type
-	fmt.Println("nMongoFields Docs:", reflect.TypeOf(doc))
-
+func getMongoCollection(coll_name string) (*mongo.Collection, *mongo.Client){
 	// Set client options
 	uri := "mongodb://root:root@mongo:27017"
 	clientOptions := options.Client().ApplyURI(uri)
@@ -87,15 +72,134 @@ func writeMongo(){
 
 	fmt.Println("Connected to MongoDB!")
 
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	collection := client.Database("theoremus").Collection(coll_name)
+	return collection, client
+}
 
-	collection := client.Database("theoremus").Collection("vehicles")
+func parseTime(rfc3339str string) time.Time{
+	rfc3339time, err := time.Parse(time.RFC3339, rfc3339str)
+	if err != nil {
+		panic(err)
+	}
+	return rfc3339time
+}
 
-	fmt.Println("ndoc _id:", doc.ID)
-	fmt.Println("doc Field Str:", doc.ID)
+func addTimeKeys(message_obj *SensorFields){
+	rfc3339time := message_obj.Data.DateTime.System
+	// rfc3339time := parseTime(rfc3339str)
 
+	d, h := trucateTime(rfc3339time)
+	// add rounded day and hour
+	message_obj.IDDay = d
+	message_obj.IDHour = h
+	// old: use this if working with bson directly
+	// sensor_extended := append(mybson, bson.E{"Extra_Day", d}, bson.E{"Extra_Hour", h})
+}
+func CoerceTypes(rawMap map[string]interface{}){
+	fmt.Printf("%+v\n", rawMap)
+	panic("hi")
+
+}
+
+func cleanJSON(rawMessage string) []byte{
+	messageMap := make(map[string]interface{})
+
+        err := json.Unmarshal([]byte(rawMessage), &messageMap)
+	if err != nil {
+	    panic(err)
+	}
+	var s string
+	var i int64
+	var f float64
+
+	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Altitude"].(string)
+	f, err = strconv.ParseFloat(s, 64)
+	if err != nil {
+		panic(err)
+	}
+	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Altitude"] = f
+
+	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Date"].(string)
+	i, err = strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Date"] = i
+
+	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["HDOP"].(string)
+	f, err = strconv.ParseFloat(s, 64)
+	if err != nil {
+		panic(err)
+	}
+	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["HDOP"] = f
+
+	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Latitude"].(string)
+	f, err = strconv.ParseFloat(s, 64)
+	if err != nil {
+		panic(err)
+	}
+	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Latitude"] = f
+
+	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Longitude"].(string)
+	f, err = strconv.ParseFloat(s, 64)
+	if err != nil {
+		panic(err)
+	}
+	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Longitude"] = f
+
+	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Time"].(string)
+	f, err = strconv.ParseFloat(s, 64)
+	if err != nil {
+		panic(err)
+	}
+	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Time"] = f
+
+	s = messageMap["data"].(map[string]interface{})["modem-info"].(map[string]interface{})["signal-quality"].(string)
+	i, err = strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	messageMap["data"].(map[string]interface{})["modem-info"].(map[string]interface{})["signal-quality"] = i
+
+	s = messageMap["vehicle-id"].(string)
+	i, err = strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	messageMap["vehicle-id"] = i
+
+	newMessage, err := json.Marshal(messageMap)
+	if err != nil {
+		panic(err)
+	}
+	return newMessage
+
+}
+
+func writeMongo(rawmessage string){
+	// var mybson primitive.M
+	// err := bson.UnmarshalExtJSON(
+	// 	[]byte(JSONstr), true, &mybson)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// rfc3339str := mybson.Map()["data"].(primitive.D).Map()["date-time"].(primitive.D).Map()["system"]
+	var message []byte = cleanJSON(rawmessage)
+
+	var message_obj SensorFields
+	err := json.Unmarshal(message, &message_obj)
+	if err != nil {
+	    panic(err)
+	}
+
+	addTimeKeys(&message_obj)
+	fmt.Printf("%+v\n", message_obj)
+
+	vehicles, client := getMongoCollection("vehicles")
 	// Call the InsertOne() method and pass the context and doc objects
-	insertResult, insertErr := collection.InsertOne(ctx, `{"car":100}`)
+	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	insertResult, insertErr := vehicles.InsertOne(ctx, message_obj)
+	// insertResult, insertErr := vehicles.InsertOne(ctx, `{"car":100}`)
 
 	// Check for any insertion errors
 	if insertErr != nil {
@@ -115,32 +219,9 @@ func writeMongo(){
 
 }
 
-func readMongo(){
-	uri := "mongodb://root:root@mongo:27017"
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if err := client.Disconnect(context.TODO()); err != nil {
-			panic(err)
-		}
-	}()
-	coll := client.Database("sample_mflix").Collection("movies")
-	title := "Back to the Future"
-	var result bson.M
-	err = coll.FindOne(context.TODO(), bson.D{{"title", title}}).Decode(&result)
-	if err == mongo.ErrNoDocuments {
-		fmt.Printf("No document was found with the title %s\n", title)
-		return
-	}
-	if err != nil {
-		panic(err)
-	}
-	jsonData, err := json.MarshalIndent(result, "", "    ")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%s\n", jsonData)
+func trucateTime(t time.Time) (time.Time, time.Time) {
+	h := t.Truncate(time.Hour)
+	d := t.Truncate(24 * time.Hour)
+	return d, h
 
 }
