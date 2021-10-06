@@ -7,6 +7,11 @@ services:
       - 2181:2181
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
+        # profiles:
+        #   - all
+        #   - services
+    logging:
+      driver: none
   kafka:
     container_name: kafka
     hostname: kafka
@@ -23,6 +28,9 @@ services:
       # - KAFKA_CREATE_TOPICS=vehicles:1:1
     depends_on:
       - zookeeper
+        # profiles:
+        #   - all
+        #   - services
   kafka-ui:
     image: provectuslabs/kafka-ui
     container_name: kafka-ui
@@ -33,6 +41,12 @@ services:
       - KAFKA_CLUSTERS_0_NAME=kafka
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
       - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
+        # profiles: 
+        #   - all
+        #   - services
+    logging:
+      driver: none
+
   kafka-consumer:
      container_name: kafka-consumer
      build: './kafka-consumer'
@@ -43,15 +57,21 @@ services:
        - mongo
        - mongo-express
        - kafka
+         #  profiles:
+         #     - all
+         #     - app
   kafka-producer:
      container_name: kafka-producer
      build: './kafka-producer'
-     command: python3 main.py
+     command: python3 src/main.py
      #      ports:
      #        - 8180:8181
      depends_on:
        - kafka
        - kafka-ui
+         # profiles:
+         #   - all
+         #   - app
   webapi:
      container_name: webapi
      build: './webapi'
@@ -60,6 +80,9 @@ services:
        - 8080:8080
      depends_on:
        - mongo
+         # profiles:
+         #   - all
+         #   - app
   mongo:
     image: mongo:4.4.9-focal
     restart: always
@@ -68,6 +91,11 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: root
     depends_on:
       - mongo-express
+        # profiles: 
+        #   - all
+        #   - services
+    logging:
+      driver: none
 
   mongo-express:
     image: mongo-express
@@ -78,6 +106,11 @@ services:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: root
       ME_CONFIG_MONGODB_URL: mongodb://root:root@mongo:27017/
+        # profiles: 
+        #   - all
+        #   - services
+    logging:
+      driver: none
   #   postgres:
   #      container_name: postgres 
   #      image: 'postgres'

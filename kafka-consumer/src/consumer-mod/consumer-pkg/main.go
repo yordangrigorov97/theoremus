@@ -5,21 +5,17 @@ import (
 	"context"
 	"log"
 	"encoding/json"
-	//"reflect"
 	"time"
-	// "os"
 	"strconv"
 
 	"github.com/segmentio/kafka-go"
-	// "github.com/joho/godotenv"
-	//"go.mongodb.org/mongo-driver/bson"
-	//"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	)
 
 func main(){
-	// make a new reader that consumes from topic-A, partition 0, at offset 42
+
+	// message:= `{"data":{"date-time":{"system":"2021-09-24T01:40:01+00:00"},"gps-info":{"Altitude":"552.8","Date":"240921","HDOP":"0.7","Latitude":"42.70599365","Longitude":"23.31282425","SatelliteUsed":9,"Speed":52.782001495361328,"Time":"014001.00","Validity":"A"},"modem-info":{"signal-quality":"31"},"stop-info":{}},"device-id":"004101FB","device-type":"OBU","hostname":"obu","priority":1,"scheme-version":"v1_0_9","vehicle-id":"132801","id":"ddd21912-421c-4839-8669-153dfc4d6def"}`
 	fmt.Println("Hello from kafka-consumer")
 	fmt.Println("reading vehicles..")
 	r := kafka.NewReader(kafka.ReaderConfig{
@@ -34,7 +30,7 @@ func main(){
 	for {
 	    message, err := r.ReadMessage(context.Background())
 	    if err != nil {
-		break
+		panic(err)
 	    }
 	    fmt.Printf("message at offset %d: %s = %s\n", message.Offset, string(message.Key), string(message.Value))
 	    message_str := string(message.Value)
@@ -46,7 +42,6 @@ func main(){
 	    log.Fatal("failed to close reader:", err)
 	}
 
-	// JSONstr := `{"data":{"date-time":{"system":"2021-09-24T01:40:01+00:00"},"gps-info":{"Altitude":"552.8","Date":"240921","HDOP":"0.7","Latitude":"42.70599365","Longitude":"23.31282425","SatelliteUsed":9,"Speed":52.782001495361328,"Time":"014001.00","Validity":"A"},"modem-info":{"signal-quality":"31"},"stop-info":{}},"device-id":"004101FB","device-type":"OBU","hostname":"obu","priority":1,"scheme-version":"v1_0_9","vehicle-id":"132801","id":"ddd21912-421c-4839-8669-153dfc4d6def"}`
 	fmt.Println("goodbye from kafka-consumer")
 
 }
@@ -57,14 +52,14 @@ func getMongoCollection(coll_name string) (*mongo.Collection, *mongo.Client){
 	clientOptions := options.Client().ApplyURI(uri)
 
 	fmt.Println("Connecting to MongoDB..")
-	client, err := mongo.Connect(context.TODO(), clientOptions)
+	client, err := mongo.Connect(context.Background(), clientOptions)
 
 	if err != nil {
 	    log.Fatal(err)
 	}
 
 	fmt.Println("Pinging MongoDB")
-	err = client.Ping(context.TODO(), nil)
+	err = client.Ping(context.Background(), nil)
 
 	if err != nil {
 	    log.Fatal(err)
@@ -209,7 +204,7 @@ func writeMongo(rawmessage string){
 	}
 
 
-	err = client.Disconnect(context.TODO())
+	err = client.Disconnect(context.Background())
 
 	if err != nil {
 	    log.Fatal(err)
