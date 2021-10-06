@@ -6,12 +6,30 @@ import (
 	"log"
 	"encoding/json"
 	"time"
-	"strconv"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	)
+func cleanOnInt(r *kafka.Reader){
+    c := make(chan os.Signal)
+    signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+    go func() {
+        <-c
+	fmt.Println("done reading...")
+
+	if err := r.Close(); err != nil {
+	    log.Fatal("failed to close reader:", err)
+	}
+
+	fmt.Println("goodbye from kafka-consumer")
+        os.Exit(1)
+    }()
+}
+
 
 func main(){
 
@@ -26,23 +44,19 @@ func main(){
 	    MaxBytes:  600e6, // 600MB
 	})
 	r.SetOffset(0)
+	cleanOnInt(r)
 
 	for {
 	    message, err := r.ReadMessage(context.Background())
 	    if err != nil {
-		panic(err)
+		print(err)
+		// probably kafka still booting
+		time.Sleep(2 * time.Second)
 	    }
 	    fmt.Printf("message at offset %d: %s = %s\n", message.Offset, string(message.Key), string(message.Value))
-	    message_str := string(message.Value)
-	    writeMongo(message_str)
+	    // message_str := string(message.Value)
+	    writeMongo(message.Value)
 	}
-	fmt.Println("done reading...")
-
-	if err := r.Close(); err != nil {
-	    log.Fatal("failed to close reader:", err)
-	}
-
-	fmt.Println("goodbye from kafka-consumer")
 
 }
 
@@ -96,82 +110,8 @@ func CoerceTypes(rawMap map[string]interface{}){
 
 }
 
-func cleanJSON(rawMessage string) []byte{
-	messageMap := make(map[string]interface{})
 
-        err := json.Unmarshal([]byte(rawMessage), &messageMap)
-	if err != nil {
-	    panic(err)
-	}
-	var s string
-	var i int64
-	var f float64
-
-	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Altitude"].(string)
-	f, err = strconv.ParseFloat(s, 64)
-	if err != nil {
-		panic(err)
-	}
-	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Altitude"] = f
-
-	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Date"].(string)
-	i, err = strconv.ParseInt(s, 10, 32)
-	if err != nil {
-		panic(err)
-	}
-	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Date"] = i
-
-	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["HDOP"].(string)
-	f, err = strconv.ParseFloat(s, 64)
-	if err != nil {
-		panic(err)
-	}
-	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["HDOP"] = f
-
-	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Latitude"].(string)
-	f, err = strconv.ParseFloat(s, 64)
-	if err != nil {
-		panic(err)
-	}
-	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Latitude"] = f
-
-	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Longitude"].(string)
-	f, err = strconv.ParseFloat(s, 64)
-	if err != nil {
-		panic(err)
-	}
-	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Longitude"] = f
-
-	s = messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Time"].(string)
-	f, err = strconv.ParseFloat(s, 64)
-	if err != nil {
-		panic(err)
-	}
-	messageMap["data"].(map[string]interface{})["gps-info"].(map[string]interface{})["Time"] = f
-
-	s = messageMap["data"].(map[string]interface{})["modem-info"].(map[string]interface{})["signal-quality"].(string)
-	i, err = strconv.ParseInt(s, 10, 32)
-	if err != nil {
-		panic(err)
-	}
-	messageMap["data"].(map[string]interface{})["modem-info"].(map[string]interface{})["signal-quality"] = i
-
-	s = messageMap["vehicle-id"].(string)
-	i, err = strconv.ParseInt(s, 10, 32)
-	if err != nil {
-		panic(err)
-	}
-	messageMap["vehicle-id"] = i
-
-	newMessage, err := json.Marshal(messageMap)
-	if err != nil {
-		panic(err)
-	}
-	return newMessage
-
-}
-
-func writeMongo(rawmessage string){
+func writeMongo(rawmessage []byte){
 	// var mybson primitive.M
 	// err := bson.UnmarshalExtJSON(
 	// 	[]byte(JSONstr), true, &mybson)
@@ -179,10 +119,9 @@ func writeMongo(rawmessage string){
 	// 	panic(err)
 	// }
 	// rfc3339str := mybson.Map()["data"].(primitive.D).Map()["date-time"].(primitive.D).Map()["system"]
-	var message []byte = cleanJSON(rawmessage)
 
 	var message_obj SensorFields
-	err := json.Unmarshal(message, &message_obj)
+	err := json.Unmarshal(rawmessage, &message_obj)
 	if err != nil {
 	    panic(err)
 	}
@@ -192,7 +131,8 @@ func writeMongo(rawmessage string){
 
 	vehicles, client := getMongoCollection("vehicles")
 	// Call the InsertOne() method and pass the context and doc objects
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 	insertResult, insertErr := vehicles.InsertOne(ctx, message_obj)
 	// insertResult, insertErr := vehicles.InsertOne(ctx, `{"car":100}`)
 
