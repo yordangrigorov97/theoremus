@@ -83,6 +83,9 @@ services:
          # profiles:
          #   - all
          #   - app
+     environment:
+       MONGO_URI: mongodb://root:root@mongo:27017
+
   mongo:
     image: mongo:4.4.9-focal
     restart: always
