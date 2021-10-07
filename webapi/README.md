@@ -32,3 +32,36 @@ or
 ```
 
 Depending on the aggregation type
+
+## Highlight
+
+You will most likely be interested in the MongoDB query generated code. It is located in _webapi/webapi/vehicles/vehicles\_agg.py_ counting from git root. In short, this is the interesting part:
+
+```python
+
+    result = collection.aggregate(
+        [
+           {
+              "$match": {
+                 "data.date-time.system": {
+                    "$gte": fromDT,
+                    "$lte": toDT
+                 }
+              }
+           },
+           {
+              "$group": {
+                 "_id": {
+                    "vehicle-id": "$vehicle-id",
+                    f"{agg_field}": f"${agg_field}"
+                 },
+                 "count": {
+                    "$sum": 1
+                 }
+              }
+           }
+        ]
+                                )
+
+
+```

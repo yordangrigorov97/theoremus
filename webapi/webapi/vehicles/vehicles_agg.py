@@ -14,7 +14,17 @@ def get_database():
     return client['theoremus']
 
 
-def aggregate(fromTS, toTS, how):
+def aggregate(fromTS: str, toTS: str, how: str):
+    """
+    Example query:
+    fromTS = "2020-09-24T01:40:02Z"
+    toTS = "2022-09-24T01:40:02Z"
+    how = "day"
+
+    :param param1: Date range start. In RFC3339 format
+    :param param2: Date range end. In RFC3339 format
+    :returns: JSON: a list of aggregation structs
+    """
     import arrow
     agg_field = AGGREGATION_TYPES[how]
     fromDT = arrow.get(fromTS).datetime
@@ -22,7 +32,6 @@ def aggregate(fromTS, toTS, how):
     db = get_database()
     collection = db["vehicles"]
 
-    # example 2021-09-24T01:40:02Z
     result = collection.aggregate(
         [
            {

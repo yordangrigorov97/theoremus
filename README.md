@@ -1,6 +1,25 @@
 
 # Theoremus Backend Task
 
+## Demo
+
+The GCP server on 34.135.233.145 hosts a smaller-scale demo of the app. Try it out:
+
+<!---
+[http://34.135.233.145/vehicles/2021-09-24T01:40:02Z/2021-09-24T01:40:02Z/day]()
+-->
+[http://theoremus-challenge.live/vehicles/2021-09-24T01:40:02Z/2021-09-24T01:40:02Z/day](http://theoremus-challenge.live/vehicles/2021-09-24T01:40:02Z/2021-09-24T01:40:02Z/day)
+
+
+You have a GUI access to MongoDB:
+
+<!---
+[http://34.135.233.145:27080/db/theoremus/vehicles]()
+-->
+[http://theoremus-challenge.live:27080/db/theoremus/vehicles](http://theoremus-challenge.live:27080/db/theoremus/vehicles)
+
+Try deleting some of the documents there and see how that affects the Web API results! (Don't worry, all data is restored on container restart)
+
 ## Quickstart
 
 How to run the task with docker-compose:
@@ -24,4 +43,16 @@ _Kafka Consumer_ Fetches the data from Kafka and prepares it for insertion into 
 _MongoDB_ was chosen because 1) The incoming data naturally fits into a document format. 2) It allows for better flexibility if the data structure format changes.
 
 _Web API_ Is a Django app that listens for GET requests in the following format: "/vehicles/from <rfc3339 time>/to <rfc3339 time>/(day|hour)". The parameters supplied in the URL are used to generate a query to MongoDB. The app is protected from injections because we communicate with the MongoDB driver using data structures instead of string queries.
+
+## Recreate Demo
+
+If you would like to recreate the demo hosted on _theoremus-challenge.live_, you can try out the alternative compose file:
+
+```bash
+
+docker-compose -f aws-compose.yml up
+
+```
+
+You can see the sample data used in the demo in the file: _aws/mongo-seed-aws/vehicles_
 
